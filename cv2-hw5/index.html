@@ -1,0 +1,289 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>HW5 Part A — Diffusion Models</title>
+  <style>
+    * { box-sizing: border-box; margin: 0; padding: 0; }
+
+    body {
+      font-family: Georgia, 'Times New Roman', serif;
+      background: #fff;
+      color: #111;
+      line-height: 1.7;
+    }
+
+    header {
+      border-bottom: 2px solid #111;
+      padding: 2rem 2rem 1.2rem;
+      max-width: 860px;
+      margin: 0 auto;
+    }
+    header p.course { font-size: .85rem; color: #555; margin-bottom: .3rem; }
+    header h1 { font-size: 1.8rem; font-weight: normal; }
+    header p.sub { font-size: .9rem; color: #555; margin-top: .3rem; }
+
+    main {
+      max-width: 860px;
+      margin: 0 auto;
+      padding: 2.5rem 2rem 5rem;
+    }
+
+    section { margin-bottom: 3.5rem; }
+    section + section { border-top: 1px solid #ddd; padding-top: 3.5rem; }
+
+    .section-label {
+      font-size: .75rem;
+      text-transform: uppercase;
+      letter-spacing: .1em;
+      color: #888;
+      margin-bottom: .25rem;
+      font-family: system-ui, sans-serif;
+    }
+
+    h2 { font-size: 1.3rem; font-weight: normal; margin-bottom: .6rem; }
+    h3 { font-size: 1rem; margin: 1.8rem 0 .5rem; color: #333; }
+
+    p { font-size: .93rem; color: #444; max-width: 68ch; margin-bottom: .5rem; }
+
+    .seed {
+      font-family: 'Courier New', monospace;
+      font-size: .82rem;
+      color: #555;
+      margin-top: .4rem;
+    }
+
+    /* images */
+    figure {
+      margin: 1rem 0 0;
+    }
+    figure img {
+      width: 100%;
+      height: auto;
+      display: block;
+      border: 1px solid #ddd;
+    }
+    figcaption {
+      font-size: .78rem;
+      color: #777;
+      margin-top: .35rem;
+      font-family: system-ui, sans-serif;
+    }
+
+    .grid-2 {
+      display: grid;
+      grid-template-columns: 1fr 1fr;
+      gap: 1rem;
+      margin-top: 1rem;
+    }
+
+    @media (max-width: 600px) {
+      .grid-2 { grid-template-columns: 1fr; }
+    }
+  </style>
+</head>
+<body>
+
+<header>
+  <p class="course">COMS 4732: Computer Vision 2</p>
+  <h1>HW5 Part A: The Power of Diffusion Models</h1>
+  <p class="sub">DeepFloyd IF &nbsp;·&nbsp; Sampling Loops &nbsp;·&nbsp; CFG &nbsp;·&nbsp; SDEdit &nbsp;·&nbsp; Inpainting &nbsp;·&nbsp; Visual Anagrams &nbsp;·&nbsp; Hybrid Images</p>
+</header>
+
+<main>
+
+  <!-- Part 0 -->
+  <section id="part0">
+    <div class="section-label">Part 0</div>
+    <h2>Setup &amp; Text Prompts</h2>
+    <p>Three custom prompts were generated and run at two different <code>num_inference_steps</code> values (20 and 80) to observe the effect on quality and prompt alignment.</p>
+    <p class="seed">Random seed: 42</p>
+
+    <h3>Prompt 1 — "a fluffy fat cat eating pizza"</h3>
+    <div class="grid-2">
+      <figure>
+        <img src="parta/savedimages/a fluffy fat cat eating pizza(20).png" alt="fluffy fat cat eating pizza — 20 steps" />
+        <figcaption>num_inference_steps = 20</figcaption>
+      </figure>
+      <figure>
+        <img src="parta/savedimages/a fluffy fat cat eating pizza (80).png" alt="fluffy fat cat eating pizza — 80 steps" />
+        <figcaption>num_inference_steps = 80</figcaption>
+      </figure>
+    </div>
+
+    <h3>Prompt 2 — "a monkey with cookies"</h3>
+    <div class="grid-2">
+      <figure>
+        <img src="parta/savedimages/a monkey with cookies(20).png" alt="monkey with cookies — 20 steps" />
+        <figcaption>num_inference_steps = 20</figcaption>
+      </figure>
+      <figure>
+        <img src="parta/savedimages/a monkey with cookies (80).png" alt="monkey with cookies — 80 steps" />
+        <figcaption>num_inference_steps = 80</figcaption>
+      </figure>
+    </div>
+
+    <h3>Prompt 3 — "sleeping bunny on hamburger"</h3>
+    <div class="grid-2">
+      <figure>
+        <img src="parta/savedimages/sleeping bunny on hamburger(20).png" alt="sleeping bunny on hamburger — 20 steps" />
+        <figcaption>num_inference_steps = 20</figcaption>
+      </figure>
+      <figure>
+        <img src="parta/savedimages/sleeping bunny on hamburger.png" alt="sleeping bunny on hamburger — 80 steps" />
+        <figcaption>num_inference_steps = 80</figcaption>
+      </figure>
+    </div>
+
+    <p style="margin-top:1.2rem;">More inference steps produce sharper textures and better composition at the cost of compute. All subsequent parts use the same seed.</p>
+  </section>
+
+  <!-- 1.2 -->
+  <section id="part12">
+    <div class="section-label">Part 1.2</div>
+    <h2>Classical Denoising</h2>
+    <p>Gaussian blur applied directly to noisy images. Reduces noise but blurs fine detail and uses no learned priors.</p>
+    <figure>
+      <img src="parta/savedimages/1.2.jpg" alt="Classical Denoising" />
+      <figcaption>Gaussian blur denoising at various noise levels</figcaption>
+    </figure>
+  </section>
+
+  <!-- 1.3 -->
+  <section id="part13">
+    <div class="section-label">Part 1.3</div>
+    <h2>One-Step Denoising</h2>
+    <p>The UNet predicts and removes all noise in a single forward pass. Much better than Gaussian blur but can leave artifacts without iterative refinement.</p>
+    <figure>
+      <img src="parta/savedimages/1.3.jpg" alt="One-Step Denoising" />
+      <figcaption>One-step UNet denoising at various noise levels</figcaption>
+    </figure>
+  </section>
+
+  <!-- 1.4 -->
+  <section id="part14">
+    <div class="section-label">Part 1.4</div>
+    <h2>Iterative Denoising</h2>
+    <p>The sampling loop steps backward through the diffusion trajectory, producing much cleaner and more natural reconstructions than one-step denoising.</p>
+    <figure>
+      <img src="parta/savedimages/1.4.jpg" alt="Iterative Denoising" />
+      <figcaption>Iterative denoising across timesteps</figcaption>
+    </figure>
+  </section>
+
+  <!-- 1.5 -->
+  <section id="part15">
+    <div class="section-label">Part 1.5</div>
+    <h2>Diffusion Model Sampling</h2>
+    <p>Starting from pure Gaussian noise with <code>i_start = 0</code> and the prompt <em>"a high quality photo"</em>, the loop generates novel images entirely from scratch.</p>
+    <figure>
+      <img src="parta/savedimages/1.5.jpg" alt="5 diffusion samples" />
+      <figcaption>5 samples — "a high quality photo" (no CFG)</figcaption>
+    </figure>
+    <p style="margin-top:.8rem;">Results are recognizable but sometimes lack coherence — addressed with CFG in the next section.</p>
+  </section>
+
+  <!-- 1.6 -->
+  <section id="part16">
+    <div class="section-label">Part 1.6</div>
+    <h2>Classifier-Free Guidance (CFG)</h2>
+    <p>Noise estimate: <strong>ε = ε<sub>u</sub> + γ(ε<sub>c</sub> − ε<sub>u</sub>)</strong> with γ = 7. Higher guidance scale trades diversity for sharpness and coherence.</p>
+    <figure>
+      <img src="parta/savedimages/1.6.jpg" alt="5 CFG samples" />
+      <figcaption>5 samples — "a high quality photo" with CFG scale γ = 7</figcaption>
+    </figure>
+    <p style="margin-top:.8rem;">CFG samples are noticeably sharper and more structured compared to Part 1.5.</p>
+  </section>
+
+  <!-- 1.7 -->
+  <section id="part17">
+    <div class="section-label">Part 1.7</div>
+    <h2>Image-to-Image Translation (SDEdit)</h2>
+    <p>A real image is noised to a chosen timestep, then denoised with CFG. Lower starting indices preserve more of the original; higher indices allow more creative divergence.</p>
+    <figure>
+      <img src="parta/savedimages/1.7.jpg" alt="SDEdit results" />
+      <figcaption>SDEdit — Campanile + 2 custom images at i_start ∈ {1, 3, 5, 7, 10, 20}</figcaption>
+    </figure>
+  </section>
+
+  <!-- 1.7.1 -->
+  <section id="part171">
+    <div class="section-label">Part 1.7.1</div>
+    <h2>Editing Web &amp; Hand-Drawn Images</h2>
+    <p>SDEdit works especially well on non-photorealistic inputs — sketches and web images are projected onto the natural image manifold while their coarse structure is preserved.</p>
+    <figure>
+      <img src="parta/savedimages/1.7.1web.jpg" alt="Web image SDEdit" />
+      <figcaption>Web image — SDEdit at i_start ∈ {1, 3, 5, 7, 10, 20}</figcaption>
+    </figure>
+  </section>
+
+  <!-- 1.7.2 -->
+  <section id="part172">
+    <div class="section-label">Part 1.7.2</div>
+    <h2>Inpainting</h2>
+    <p>At each denoising step, pixels outside the edit mask are forced back to the original image (with appropriate noise for that timestep), while pixels inside the mask are freely generated. This follows the RePaint algorithm.</p>
+    <figure>
+      <img src="parta/savedimages/1.7.2camp.jpg" alt="Campanile inpainting" />
+      <figcaption>Campanile — inpainted top of tower</figcaption>
+    </figure>
+    <div class="grid-2" style="margin-top:1rem;">
+      <figure>
+        <img src="parta/savedimages/1.7.2cat.jpg" alt="Cat inpainting" />
+        <figcaption>Custom image 1 — cat inpainted</figcaption>
+      </figure>
+      <figure>
+        <img src="parta/savedimages/1.7.2monkey.jpg" alt="Monkey inpainting" />
+        <figcaption>Custom image 2 — monkey inpainted</figcaption>
+      </figure>
+    </div>
+  </section>
+
+  <!-- 1.7.3 -->
+  <section id="part173">
+    <div class="section-label">Part 1.7.3</div>
+    <h2>Text-Conditional Image-to-Image Translation</h2>
+    <p>Same as SDEdit but the denoising is guided by a descriptive text prompt rather than "a high quality photo". The output gradually resembles both the original image and the text description as the starting noise index increases.</p>
+    <figure>
+      <img src="parta/savedimages/1.7.3.jpg" alt="Text-conditional SDEdit" />
+      <figcaption>Text-conditional SDEdit — Campanile + 2 custom images at i_start ∈ {1, 3, 5, 7, 10, 20}</figcaption>
+    </figure>
+  </section>
+
+  <!-- 1.8 -->
+  <section id="part18">
+    <div class="section-label">Part 1.8</div>
+    <h2>Visual Anagrams</h2>
+    <p>At each step, the image is denoised once upright with prompt A and once flipped with prompt B. The two noise estimates are averaged, producing an image that looks like scene A right-side up and scene B when flipped 180°.</p>
+    <div class="grid-2" style="margin-top:1rem;">
+      <figure>
+        <img src="parta/savedimages/1.8(1).jpg" alt="Visual anagram 1" />
+        <figcaption>Illusion 1</figcaption>
+      </figure>
+      <figure>
+        <img src="parta/savedimages/1.8(2).jpg" alt="Visual anagram 2" />
+        <figcaption>Illusion 2</figcaption>
+      </figure>
+    </div>
+  </section>
+
+  <!-- 1.9 -->
+  <section id="part19">
+    <div class="section-label">Part 1.9</div>
+    <h2>Hybrid Images</h2>
+    <p>Low frequencies from one noise estimate (prompt A) are combined with high frequencies from another (prompt B). The resulting image appears as one scene up close and the other from a distance — the same principle as project 2.</p>
+    <div class="grid-2" style="margin-top:1rem;">
+      <figure>
+        <img src="parta/savedimages/1.9(1).jpg" alt="Hybrid image 1" />
+        <figcaption>Hybrid image 1</figcaption>
+      </figure>
+      <figure>
+        <img src="parta/savedimages/1.9(2).jpg" alt="Hybrid image 2" />
+        <figcaption>Hybrid image 2</figcaption>
+      </figure>
+    </div>
+  </section>
+
+</main>
+</body>
+</html>
